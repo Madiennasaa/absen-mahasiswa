@@ -20,7 +20,8 @@
                 <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase">
                     <th class="py-3 px-4">Nama</th>
                     <th class="py-3 px-4">Email</th>
-                    <th class="py-3 px-4">Role</th>
+                    <th class="py-3 px-4">Kelas</th>
+                    <th class="py-3 px-4">Prodi</th>
                     <th class="py-3 px-4 text-right">Aksi</th>
                 </tr>
             </thead>
@@ -29,7 +30,8 @@
                     <tr class="hover:bg-slate-900/10 transition-colors">
                         <td class="py-3.5 px-4 font-medium text-white">{{ $dsn->name }}</td>
                         <td class="py-3.5 px-4 text-slate-300">{{ $dsn->email }}</td>
-                        <td class="py-3.5 px-4 text-slate-400 font-mono">{{ $dsn->role }}</td>
+                        <td class="py-3.5 px-4 text-slate-300 font-mono text-xs">{{ $dsn->kelas ?? '-' }}</td>
+                        <td class="py-3.5 px-4 text-slate-300 text-xs">{{ $dsn->prodi ?? '-' }}</td>
                         <td class="py-3.5 px-4 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ route('admin.dosen.edit', $dsn->id) }}" class="p-2 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-all" title="Edit">
@@ -47,7 +49,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="py-8 text-center text-slate-500">Tidak ada data akun dosen.</td>
+                        <td colspan="5" class="py-8 text-center text-slate-500">Tidak ada data akun dosen.</td>
                     </tr>
                 @endforelse
             </tbody>

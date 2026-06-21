@@ -31,6 +31,8 @@ class DatabaseSeeder extends Seeder
             'email' => 'dosen@gmail.com',
             'password' => bcrypt('dosen123'),
             'role' => 'dosen',
+            'kelas' => '3A',
+            'prodi' => 'Teknik Informatika',
         ]);
 
         // Call Mahasiswa Seeder

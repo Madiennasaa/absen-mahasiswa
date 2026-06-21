@@ -81,6 +81,14 @@
 
     <table class="info-table">
         <tr>
+            <td class="label">Kelas</td>
+            <td>: {{ $scope['kelas'] }}</td>
+        </tr>
+        <tr>
+            <td class="label">Program Studi</td>
+            <td>: {{ $scope['prodi'] }}</td>
+        </tr>
+        <tr>
             <td class="label">Periode Laporan</td>
             <td>: {{ \Carbon\Carbon::parse($startDate)->format('d F Y') }} s/d {{ \Carbon\Carbon::parse($endDate)->format('d F Y') }}</td>
         </tr>

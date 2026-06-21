@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 // PERHATIKAN DI SINI: 'role' sudah aku tambahkan di dalam kurung Fillable
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'kelas', 'prodi'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {

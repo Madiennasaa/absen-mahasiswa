@@ -36,6 +36,36 @@
             @enderror
         </div>
 
+        <!-- Kelas -->
+        <div>
+            <label for="kelas" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Kelas yang Diampu</label>
+            <input type="text" id="kelas" name="kelas" value="{{ old('kelas', $dosen->kelas) }}" required placeholder="Contoh: 3A" list="list-kelas"
+                   class="w-full bg-slate-900/60 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-all">
+            <datalist id="list-kelas">
+                @foreach($allKelas as $kls)
+                    <option value="{{ $kls }}">
+                @endforeach
+            </datalist>
+            @error('kelas')
+                <span class="text-xs text-red-400 mt-1 block">{{ $message }}</span>
+            @enderror
+        </div>
+
+        <!-- Prodi -->
+        <div>
+            <label for="prodi" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Program Studi</label>
+            <input type="text" id="prodi" name="prodi" value="{{ old('prodi', $dosen->prodi) }}" required placeholder="Contoh: Teknik Informatika" list="list-prodi"
+                   class="w-full bg-slate-900/60 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-all">
+            <datalist id="list-prodi">
+                @foreach($allProdi as $prd)
+                    <option value="{{ $prd }}">
+                @endforeach
+            </datalist>
+            @error('prodi')
+                <span class="text-xs text-red-400 mt-1 block">{{ $message }}</span>
+            @enderror
+        </div>
+
         <div class="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 mb-2 text-xs text-slate-400">
             <strong class="text-slate-300">Catatan:</strong> Kosongkan kata sandi di bawah jika Anda tidak ingin mengubahnya.
         </div>

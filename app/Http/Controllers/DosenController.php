@@ -10,18 +10,46 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\AbsensiExport;
 
+/**
+ * DosenController — Dashboard dosen (read-only, scoped)
+ *
+ * Semua query di controller ini WAJIB di-scope ke kelas & prodi
+ * yang tersimpan di akun dosen yang sedang login (users.kelas & users.prodi).
+ * Dosen tidak bisa ganti-ganti kelas/prodi — data langsung terkunci.
+ *
+ * "Alpa" bukan data eksplisit di tabel absensi. Alpa dihitung sebagai:
+ *   jumlah_hari_aktif - jumlah_record_absensi_mahasiswa
+ * dalam rentang tanggal yang dipilih.
+ */
 class DosenController extends Controller
 {
+    /**
+     * Ambil kelas & prodi dari user dosen yang sedang login.
+     * Digunakan di seluruh method untuk scoping query.
+     */
+    private function getDosenScope(): array
+    {
+        $user = auth()->user();
+        return [
+            'kelas' => $user->kelas,
+            'prodi' => $user->prodi,
+        ];
+    }
+
+    /**
+     * Halaman utama dosen: rekap absensi + grafik + statistik per mahasiswa.
+     */
     public function index(Request $request)
     {
         $rekapInfo = $this->getRekapData($request);
         $rekapData = $rekapInfo['data'];
         $startDate = $rekapInfo['start_date'];
         $endDate = $rekapInfo['end_date'];
+        $totalHariAktif = $rekapInfo['total_hari_aktif'];
 
-        // Pagination for UI view (we calculate on collection directly for simplicity)
+        // --- Pagination untuk tabel rekap ---
         $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
-        $perPage = 10;
+        $perPage = 15;
         $currentPageItems = $rekapData->slice(($currentPage - 1) * $perPage, $perPage)->values();
         $paginatedRekap = new \Illuminate\Pagination\LengthAwarePaginator(
             $currentPageItems,
@@ -31,83 +59,77 @@ class DosenController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        // Chart Data Agregations
-        // 1. Pie/Donut Chart: Hadir vs Terlambat vs Alpa
-        $statusCounts = $rekapData->groupBy('status')->map(fn($item) => $item->count());
+        // --- Chart: Pie/Donut — Persentase Hadir vs Terlambat vs Alpa ---
+        $statusCounts = $rekapData->groupBy('status')->map(fn($items) => $items->count());
         $chartPie = [
             'Hadir' => $statusCounts->get('Hadir', 0),
             'Terlambat' => $statusCounts->get('Terlambat', 0),
-            'Alpa' => $statusCounts->get('Alpa', 0)
+            'Alpa' => $statusCounts->get('Alpa', 0),
         ];
 
-        // 2. Bar Chart: Status counts per Kelas
-        $kelasGroups = $rekapData->groupBy('kelas');
+        // --- Chart: Bar — Hadir/Terlambat/Alpa per mahasiswa ---
+        $mahasiswaGroups = $rekapData->groupBy('nim');
         $chartBar = [];
-        foreach ($kelasGroups as $kelas => $items) {
-            $counts = $items->groupBy('status')->map(fn($group) => $group->count());
-            $chartBar[$kelas] = [
+        foreach ($mahasiswaGroups as $nim => $items) {
+            $mhs = $items->first();
+            $counts = $items->groupBy('status')->map(fn($g) => $g->count());
+            $chartBar[$mhs['nama']] = [
                 'Hadir' => $counts->get('Hadir', 0),
                 'Terlambat' => $counts->get('Terlambat', 0),
-                'Alpa' => $counts->get('Alpa', 0)
+                'Alpa' => $counts->get('Alpa', 0),
             ];
         }
 
-        // 3. Line Chart: Daily attendance trends
+        // --- Chart: Line — Tren kehadiran harian ---
         $dateGroups = $rekapData->groupBy('tanggal')->sortKeys();
         $chartLine = [
             'labels' => [],
             'Hadir' => [],
             'Terlambat' => [],
-            'Alpa' => []
+            'Alpa' => [],
         ];
         foreach ($dateGroups as $date => $items) {
-            $formattedDate = Carbon::parse($date)->format('d M');
-            $chartLine['labels'][] = $formattedDate;
-            $counts = $items->groupBy('status')->map(fn($group) => $group->count());
+            $chartLine['labels'][] = Carbon::parse($date)->format('d M');
+            $counts = $items->groupBy('status')->map(fn($g) => $g->count());
             $chartLine['Hadir'][] = $counts->get('Hadir', 0);
             $chartLine['Terlambat'][] = $counts->get('Terlambat', 0);
             $chartLine['Alpa'][] = $counts->get('Alpa', 0);
         }
 
-        // 4. Per Mahasiswa Stats
-        $mahasiswaGroups = $rekapData->groupBy('nim');
-        $mahasiswaStats = [];
+        // --- Statistik per mahasiswa ---
+        $mahasiswaStats = collect();
         foreach ($mahasiswaGroups as $nim => $items) {
             $mhs = $items->first();
-            $counts = $items->groupBy('status')->map(fn($group) => $group->count());
+            $counts = $items->groupBy('status')->map(fn($g) => $g->count());
             $hadir = $counts->get('Hadir', 0);
             $terlambat = $counts->get('Terlambat', 0);
             $alpa = $counts->get('Alpa', 0);
-            $totalDays = $items->count();
-            
-            $percentage = $totalDays > 0 ? round((($hadir + $terlambat) / $totalDays) * 100, 2) : 0;
 
-            $mahasiswaStats[] = [
+            // Persentase kehadiran = (Hadir + Terlambat) / total_hari_aktif * 100
+            $persentase = $totalHariAktif > 0
+                ? round((($hadir + $terlambat) / $totalHariAktif) * 100, 1)
+                : 0;
+
+            $mahasiswaStats->push([
                 'nim' => $nim,
                 'nama' => $mhs['nama'],
-                'kelas' => $mhs['kelas'],
-                'prodi' => $mhs['prodi'],
                 'hadir' => $hadir,
                 'terlambat' => $terlambat,
                 'alpa' => $alpa,
-                'total' => $totalDays,
-                'persentase' => $percentage
-            ];
+                'persentase' => $persentase,
+            ]);
         }
-        $mahasiswaStats = collect($mahasiswaStats);
 
-        // Sorting & pagination for mahasiswa stats
+        // Sorting statistik mahasiswa
         if ($request->filled('sort_mhs')) {
-            $sort = $request->sort_mhs;
-            if ($sort === 'persentase_asc') {
-                $mahasiswaStats = $mahasiswaStats->sortBy('persentase');
-            } elseif ($sort === 'persentase_desc') {
-                $mahasiswaStats = $mahasiswaStats->sortByDesc('persentase');
-            }
+            $mahasiswaStats = match ($request->sort_mhs) {
+                'persentase_asc' => $mahasiswaStats->sortBy('persentase')->values(),
+                'persentase_desc' => $mahasiswaStats->sortByDesc('persentase')->values(),
+                default => $mahasiswaStats,
+            };
         }
-        
-        $allKelas = Mahasiswa::select('kelas')->distinct()->pluck('kelas');
-        $allProdi = Mahasiswa::select('prodi')->distinct()->pluck('prodi');
+
+        $scope = $this->getDosenScope();
 
         return view('dosen.dashboard', compact(
             'paginatedRekap',
@@ -115,80 +137,107 @@ class DosenController extends Controller
             'chartBar',
             'chartLine',
             'mahasiswaStats',
-            'allKelas',
-            'allProdi',
             'startDate',
-            'endDate'
+            'endDate',
+            'totalHariAktif',
+            'scope'
         ));
     }
 
+    /**
+     * Export rekap absensi ke PDF (ter-scope ke kelas+prodi dosen).
+     */
     public function exportPdf(Request $request)
     {
         $rekapInfo = $this->getRekapData($request);
         $rekapData = $rekapInfo['data'];
         $startDate = $rekapInfo['start_date'];
         $endDate = $rekapInfo['end_date'];
+        $scope = $this->getDosenScope();
 
-        $pdf = Pdf::loadView('exports.rekap-pdf', compact('rekapData', 'startDate', 'endDate'));
-        return $pdf->download("rekap-absensi-{$startDate}-to-{$endDate}.pdf");
+        $pdf = Pdf::loadView('exports.rekap-pdf', compact('rekapData', 'startDate', 'endDate', 'scope'));
+        $pdf->setPaper('a4', 'landscape');
+
+        $filename = "rekap-absensi-{$scope['kelas']}-{$startDate}-to-{$endDate}.pdf";
+
+        return $pdf->download($filename);
     }
 
+    /**
+     * Export rekap absensi ke Excel (ter-scope ke kelas+prodi dosen).
+     */
     public function exportExcel(Request $request)
     {
         $rekapInfo = $this->getRekapData($request);
         $rekapData = $rekapInfo['data'];
         $startDate = $rekapInfo['start_date'];
         $endDate = $rekapInfo['end_date'];
+        $scope = $this->getDosenScope();
 
-        return Excel::download(new AbsensiExport($rekapData), "rekap-absensi-{$startDate}-to-{$endDate}.xlsx");
+        $filename = "rekap-absensi-{$scope['kelas']}-{$startDate}-to-{$endDate}.xlsx";
+
+        return Excel::download(new AbsensiExport($rekapData), $filename);
     }
 
-    private function getRekapData(Request $request)
+    /**
+     * Ambil dan hitung data rekap absensi, SELALU di-scope ke kelas+prodi dosen.
+     *
+     * Logic Alpa:
+     * - Untuk setiap tanggal dalam rentang, untuk setiap mahasiswa di kelas+prodi dosen:
+     *   - Jika ada record di tabel absensi → status = Hadir/Terlambat (dari DB)
+     *   - Jika tidak ada record → status = Alpa (dihitung, bukan dari DB)
+     *
+     * Filter status (Hadir/Terlambat/Alpa) diterapkan SETELAH kalkulasi Alpa.
+     */
+    private function getRekapData(Request $request): array
     {
+        $scope = $this->getDosenScope();
+
+        // Parsing tanggal
         $startDateInput = $request->input('start_date');
         $endDateInput = $request->input('end_date');
 
-        // Default to today if no date range is provided
         $startDate = $startDateInput ? Carbon::parse($startDateInput) : Carbon::today();
         $endDate = $endDateInput ? Carbon::parse($endDateInput) : Carbon::today();
 
+        // Swap jika terbalik
         if ($startDate->gt($endDate)) {
-            $temp = $startDate;
-            $startDate = $endDate;
-            $endDate = $temp;
+            [$startDate, $endDate] = [$endDate, $startDate];
         }
 
-        // Get all dates in range
+        // Bangun daftar tanggal aktif dalam rentang (semua hari, termasuk weekend)
         $dates = [];
         $current = $startDate->copy();
         while ($current->lte($endDate)) {
             $dates[] = $current->format('Y-m-d');
             $current->addDay();
         }
+        $totalHariAktif = count($dates);
 
-        // Get mahasiswa with filters
-        $mahasiswaQuery = Mahasiswa::query();
-        if ($request->filled('kelas')) {
-            $mahasiswaQuery->where('kelas', $request->kelas);
-        }
-        if ($request->filled('prodi')) {
-            $mahasiswaQuery->where('prodi', $request->prodi);
-        }
-        $mahasiswas = $mahasiswaQuery->get();
+        // Query mahasiswa — WAJIB di-scope ke kelas+prodi dosen
+        $mahasiswas = Mahasiswa::where('kelas', $scope['kelas'])
+            ->where('prodi', $scope['prodi'])
+            ->orderBy('nama')
+            ->get();
 
-        // Get all attendance records in range
-        $absensi = Absensi::whereBetween('waktu_masuk', [
-            $startDate->startOfDay()->toDateTimeString(),
-            $endDate->endOfDay()->toDateTimeString()
-        ])->get()->groupBy(function($item) {
-            return $item->uid_ktm . '_' . $item->waktu_masuk->format('Y-m-d');
-        });
+        // Query absensi dalam rentang — hanya untuk mahasiswa di kelas+prodi dosen
+        $mahasiswaUids = $mahasiswas->pluck('uid_ktm');
+        $absensi = Absensi::whereIn('uid_ktm', $mahasiswaUids)
+            ->whereBetween('waktu_masuk', [
+                $startDate->copy()->startOfDay()->toDateTimeString(),
+                $endDate->copy()->endOfDay()->toDateTimeString(),
+            ])
+            ->get()
+            ->groupBy(function ($item) {
+                return $item->uid_ktm . '_' . $item->waktu_masuk->format('Y-m-d');
+            });
 
+        // Bangun data rekap: semua tanggal x semua mahasiswa
         $rekap = [];
         foreach ($dates as $date) {
             foreach ($mahasiswas as $mhs) {
                 $key = $mhs->uid_ktm . '_' . $date;
-                
+
                 if (isset($absensi[$key])) {
                     $record = $absensi[$key]->first();
                     $status = $record->status;
@@ -210,33 +259,46 @@ class DosenController extends Controller
             }
         }
 
-        // Filter by status if requested
+        // Filter status jika diminta
         if ($request->filled('status')) {
             $statusFilter = $request->status;
-            $rekap = array_filter($rekap, function($item) use ($statusFilter) {
-                return $item['status'] === $statusFilter;
-            });
+            $rekap = array_filter($rekap, fn($item) => $item['status'] === $statusFilter);
         }
 
         return [
             'data' => collect(array_values($rekap)),
             'start_date' => $startDate->format('Y-m-d'),
             'end_date' => $endDate->format('Y-m-d'),
+            'total_hari_aktif' => $totalHariAktif,
         ];
     }
 
+    /**
+     * Halaman live monitor — menampilkan tap kartu real-time (ter-scope).
+     */
     public function liveMonitor()
     {
-        return view('dosen.live-monitor');
+        $scope = $this->getDosenScope();
+        return view('dosen.live-monitor', compact('scope'));
     }
 
+    /**
+     * Data JSON untuk live monitor — WAJIB di-scope ke kelas+prodi dosen.
+     */
     public function liveData()
     {
+        $scope = $this->getDosenScope();
+
         $recent = Absensi::with('mahasiswa')
+            ->whereHas('mahasiswa', function ($q) use ($scope) {
+                $q->where('kelas', $scope['kelas'])
+                  ->where('prodi', $scope['prodi']);
+            })
+            ->whereDate('waktu_masuk', Carbon::today())
             ->orderBy('waktu_masuk', 'desc')
-            ->take(10)
+            ->take(15)
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 return [
                     'nama' => $item->mahasiswa->nama ?? 'Unknown',
                     'nim' => $item->mahasiswa->nim ?? '-',

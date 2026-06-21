@@ -126,7 +126,9 @@ class AdminController extends Controller
 
     public function dosenCreate()
     {
-        return view('admin.dosen.create');
+        $allKelas = Mahasiswa::select('kelas')->distinct()->pluck('kelas');
+        $allProdi = Mahasiswa::select('prodi')->distinct()->pluck('prodi');
+        return view('admin.dosen.create', compact('allKelas', 'allProdi'));
     }
 
     public function dosenStore(Request $request)
@@ -135,6 +137,8 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'kelas' => 'required|string|max:10',
+            'prodi' => 'required|string|max:50',
         ]);
 
         User::create([
@@ -142,6 +146,8 @@ class AdminController extends Controller
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
             'role' => 'dosen',
+            'kelas' => $validated['kelas'],
+            'prodi' => $validated['prodi'],
         ]);
 
         return redirect()->route('admin.dosen.index')->with('success', 'Akun dosen berhasil ditambahkan.');
@@ -150,7 +156,9 @@ class AdminController extends Controller
     public function dosenEdit($id)
     {
         $dosen = User::where('role', 'dosen')->findOrFail($id);
-        return view('admin.dosen.edit', compact('dosen'));
+        $allKelas = Mahasiswa::select('kelas')->distinct()->pluck('kelas');
+        $allProdi = Mahasiswa::select('prodi')->distinct()->pluck('prodi');
+        return view('admin.dosen.edit', compact('dosen', 'allKelas', 'allProdi'));
     }
 
     public function dosenUpdate(Request $request, $id)
@@ -160,6 +168,8 @@ class AdminController extends Controller
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $dosen->id,
+            'kelas' => 'required|string|max:10',
+            'prodi' => 'required|string|max:50',
         ];
 
         if ($request->filled('password')) {
@@ -170,6 +180,8 @@ class AdminController extends Controller
 
         $dosen->name = $validated['name'];
         $dosen->email = $validated['email'];
+        $dosen->kelas = $validated['kelas'];
+        $dosen->prodi = $validated['prodi'];
 
         if ($request->filled('password')) {
             $dosen->password = bcrypt($validated['password']);
