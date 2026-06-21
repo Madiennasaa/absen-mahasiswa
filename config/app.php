@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'device_key' => env('DEVICE_KEY', 'my_secure_device_key'),
+
 ];

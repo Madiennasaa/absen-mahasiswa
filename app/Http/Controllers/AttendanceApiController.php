@@ -12,7 +12,7 @@ class AttendanceApiController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'uid' => 'required|string',
+            'uid' => 'required|string|max:36|regex:/^[A-F0-9]+$/',
         ]);
 
         $uid = $request->uid;

@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\AttendanceApiController;
-use Illmunitae\Support\Facades\Route;
+use App\Http\Middleware\ValidateDeviceKey;
+use Illuminate\Support\Facades\Route;
 
-Route::post('/tap-rfid', [AttendanceApiController::class, 'store']);
+Route::post('/tap-rfid', [AttendanceApiController::class, 'store'])->middleware(ValidateDeviceKey::class);
