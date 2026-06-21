@@ -199,4 +199,18 @@ class AdminController extends Controller
 
         return redirect()->route('admin.dosen.index')->with('success', 'Akun dosen berhasil dihapus.');
     }
+
+    public function rfidEditModeStatus()
+    {
+        // Beri tahu backend bahwa form sedang terbuka, tahan selama 5 detik
+        \Illuminate\Support\Facades\Cache::put('rfid_edit_mode', true, 5);
+
+        // Ambil uid yang baru saja di-scan (jika ada)
+        $lastScannedUid = \Illuminate\Support\Facades\Cache::pull('last_scanned_uid');
+
+        return response()->json([
+            'status' => 'success',
+            'uid' => $lastScannedUid
+        ]);
+    }
 }

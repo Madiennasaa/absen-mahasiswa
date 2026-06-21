@@ -20,7 +20,17 @@ class AttendanceApiController extends Controller
 
         $mahasiswa = Mahasiswa::where('uid_ktm', $uid)->first();
 
-        // Logika baru: Jika UID tidak ada, simpan sebagai data baru
+        // Cek apakah sedang dalam mode edit form
+        if (\Illuminate\Support\Facades\Cache::has('rfid_edit_mode')) {
+            \Illuminate\Support\Facades\Cache::put('last_scanned_uid', $uid, 10);
+            return response()->json([
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'UID ditangkap untuk mode edit'
+            ], 200);
+        }
+
+        // Logika baru: Jika UID tidak ada dan BUKAN di mode edit, simpan sebagai data baru
         if (!$mahasiswa) {
             $mahasiswa = new Mahasiswa();
             $mahasiswa->uid_ktm = $uid;

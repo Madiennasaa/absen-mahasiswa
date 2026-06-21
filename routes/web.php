@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DosenController;
+use App\Http\Controllers\MahasiswaController;
 
 // Welcome Page (Redirect to login)
 Route::get('/', function () {
@@ -15,6 +16,7 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+Route::post('/admin/mahasiswa/update-uid', [MahasiswaController::class, 'updateUid'])->name('admin.mahasiswa.updateUid');
 // Authenticated Routes
 Route::middleware(['auth'])->group(function () {
     
@@ -23,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [AdminController::class, 'index'])->name('dashboard');
         
         // Mahasiswa CRUD
+        Route::get('/mahasiswa/rfid-edit-mode', [AdminController::class, 'rfidEditModeStatus'])->name('mahasiswa.rfidEditMode');
         Route::get('/mahasiswa', [AdminController::class, 'mahasiswaIndex'])->name('mahasiswa.index');
         Route::get('/mahasiswa/create', [AdminController::class, 'mahasiswaCreate'])->name('mahasiswa.create');
         Route::post('/mahasiswa', [AdminController::class, 'mahasiswaStore'])->name('mahasiswa.store');
