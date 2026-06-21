@@ -20,12 +20,21 @@ class AttendanceApiController extends Controller
 
         $mahasiswa = Mahasiswa::where('uid_ktm', $uid)->first();
 
+        // Logika baru: Jika UID tidak ada, simpan sebagai data baru
         if (!$mahasiswa) {
+            $mahasiswa = new Mahasiswa();
+            $mahasiswa->uid_ktm = $uid;
+            $mahasiswa->nim     = '-';
+            $mahasiswa->nama    = 'User ' . $uid;
+            $mahasiswa->kelas   = '-';
+            $mahasiswa->prodi   = '-';
+            $mahasiswa->save();
+
             return response()->json([
-                'status'  => 'error',
-                'code'    => 404,
-                'message' => 'UID Tidak Dikenali!'
-            ], 404);
+                'status'  => 'success',
+                'code'    => 201,
+                'message' => 'UID Baru Disimpan'
+            ], 201);
         }
 
         $hariIni = Carbon::today();
@@ -37,7 +46,7 @@ class AttendanceApiController extends Controller
             return response()->json([
                 'status'  => 'error',
                 'code'    => 400,
-                'message' => 'Anda Sudah Absen Hari Ini!'
+                'message' => 'Sudah Absen Hari Ini'
             ], 400);
         }
 
@@ -58,7 +67,7 @@ class AttendanceApiController extends Controller
         return response()->json([
             'status'  => 'success',
             'code'    => 200,
-            'message' => 'Absensi Berhasil',
+            'message' => 'Absen Berhasil',
             'data'    => [
                 'nama'   => $mahasiswa->nama,
                 'status' => $statusKehadiran,
