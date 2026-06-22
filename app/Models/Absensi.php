@@ -14,6 +14,7 @@ class Absensi extends Model
         'uid_ktm',
         'waktu_masuk',
         'status',
+        'keterlambatan_menit',  // ← tambah ini
     ];
 
     protected $casts = [
@@ -23,5 +24,14 @@ class Absensi extends Model
     public function mahasiswa()
     {
         return $this->belongsTo(Mahasiswa::class, 'uid_ktm', 'uid_ktm');
+    }
+
+    // Helper: label status + menit terlambat untuk ditampilkan
+    public function getStatusLabelAttribute(): string
+    {
+        if ($this->status === 'Terlambat' && $this->keterlambatan_menit) {
+            return "Terlambat {$this->keterlambatan_menit} menit";
+        }
+        return $this->status;
     }
 }

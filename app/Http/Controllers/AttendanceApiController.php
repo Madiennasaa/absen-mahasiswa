@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class AttendanceApiController extends Controller
 {
+    const JAM_MASUK = '07:30:00';
+
     public function store(Request $request)
     {
         $request->validate([
@@ -17,11 +19,11 @@ class AttendanceApiController extends Controller
         ]);
 
         $uid = $request->uid;
-        $waktuSekarang = Carbon::now(); 
+        $waktuSekarang = Carbon::now();
 
         $mahasiswa = Mahasiswa::where('uid_ktm', $uid)->first();
 
-        // Cek apakah sedang dalam mode edit form
+        // Mode edit form (untuk scan UID saat admin edit data)
         if (Cache::has('rfid_edit_mode')) {
             Cache::put('last_scanned_uid', $uid, 10);
             return response()->json([
@@ -31,7 +33,7 @@ class AttendanceApiController extends Controller
             ], 200);
         }
 
-        // Logika baru: Jika UID tidak terdaftar, kembalikan response belum terdaftar
+        // UID tidak terdaftar
         if (!$mahasiswa) {
             return response()->json([
                 'status'  => 'error',
@@ -40,12 +42,13 @@ class AttendanceApiController extends Controller
             ], 404);
         }
 
+        // Cek sudah absen hari ini
         $hariIni = Carbon::today();
-        $sudahAbsen = Absensi::where('uid_ktm', $uid)
-                            ->whereDate('waktu_masuk', $hariIni)
-                            ->exists();
+        $absensiHariIni = Absensi::where('uid_ktm', $uid)
+            ->whereDate('waktu_masuk', $hariIni)
+            ->first();
 
-        if ($sudahAbsen) {
+        if ($absensiHariIni) {
             return response()->json([
                 'status'  => 'error',
                 'code'    => 400,
@@ -53,28 +56,41 @@ class AttendanceApiController extends Controller
             ], 400);
         }
 
-        $jamMasuk = Carbon::createFromTimeString('08:00:00');
+        // ✅ Hitung status kehadiran & keterlambatan
+        $jamMasuk = Carbon::createFromTimeString(self::JAM_MASUK);
+        $keterlambatanMenit = null;
         
-        if ($waktuSekarang->toTimeString() > $jamMasuk->toTimeString()) {
+        if ($waktuSekarang->gt($jamMasuk)) {
             $statusKehadiran = 'Terlambat';
+            // Hitung selisih menit (dibulatkan ke atas)
+            $keterlambatanMenit = (int) ceil($waktuSekarang->diffInMinutes($jamMasuk));
         } else {
             $statusKehadiran = 'Hadir';
         }
 
-        $absensi = new Absensi();
-        $absensi->uid_ktm     = $uid;
-        $absensi->waktu_masuk = $waktuSekarang;
-        $absensi->status      = $statusKehadiran;
-        $absensi->save();
+        // Simpan absensi
+        $absensi = Absensi::create([
+            'uid_ktm'              => $uid,
+            'waktu_masuk'          => $waktuSekarang,
+            'status'               => $statusKehadiran,
+            'keterlambatan_menit'  => $keterlambatanMenit,
+        ]);
+
+        // ✅ Pesan response yang informatif
+        $messageTampil = $statusKehadiran === 'Terlambat'
+            ? "Terlambat {$keterlambatanMenit} menit"
+            : 'Hadir';
 
         return response()->json([
             'status'  => 'success',
             'code'    => 200,
             'message' => 'Absen Berhasil',
             'data'    => [
-                'nama'   => $mahasiswa->nama,
-                'status' => $statusKehadiran,
-                'waktu'  => $waktuSekarang->format('H:i:s')
+                'nama'                 => $mahasiswa->nama,
+                'status'               => $statusKehadiran,
+                'keterlambatan_menit'  => $keterlambatanMenit,
+                'status_label'         => $messageTampil,
+                'waktu'                => $waktuSekarang->format('H:i:s'),
             ]
         ], 200);
     }
