@@ -24,6 +24,7 @@ class AbsensiExport implements FromCollection, WithHeadings
                 'Kelas' => $item['kelas'],
                 'Prodi' => $item['prodi'],
                 'Waktu Masuk' => $item['waktu'],
+                'Keterlambatan (Menit)' => ($item['status'] === 'Terlambat' && $item['keterlambatan_menit'] !== null) ? $item['keterlambatan_menit'] : '-',
                 'Status' => $item['status'],
             ];
         });
@@ -38,6 +39,7 @@ class AbsensiExport implements FromCollection, WithHeadings
             'Kelas',
             'Prodi',
             'Waktu Masuk',
+            'Keterlambatan (Menit)',
             'Status'
         ];
     }

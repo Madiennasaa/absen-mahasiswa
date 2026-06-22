@@ -20,6 +20,53 @@
     </div>
 </div>
 
+{{-- Statistik Overview Cards --}}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {{-- Card Hadir --}}
+    <div class="glass-panel p-5 rounded-2xl shadow-xl border border-emerald-500/10 flex items-center gap-4">
+        <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <span class="block text-xs text-slate-400">Total Hadir</span>
+            <span class="text-xl font-bold text-white">{{ $chartPie['Hadir'] }}</span>
+        </div>
+    </div>
+
+    {{-- Card Terlambat --}}
+    <div class="glass-panel p-5 rounded-2xl shadow-xl border border-amber-500/10 flex items-center gap-4">
+        <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <span class="block text-xs text-slate-400">Total Terlambat</span>
+            <span class="text-xl font-bold text-white">{{ $chartPie['Terlambat'] }}</span>
+        </div>
+    </div>
+
+    {{-- Card Alpa --}}
+    <div class="glass-panel p-5 rounded-2xl shadow-xl border border-rose-500/10 flex items-center gap-4">
+        <div class="p-3 bg-rose-500/10 text-rose-400 rounded-xl">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <span class="block text-xs text-slate-400">Total Alpa</span>
+            <span class="text-xl font-bold text-white">{{ $chartPie['Alpa'] }}</span>
+        </div>
+    </div>
+
+    {{-- Card Keterlambatan Menit --}}
+    <div class="glass-panel p-5 rounded-2xl shadow-xl border border-violet-500/10 flex items-center gap-4">
+        <div class="p-3 bg-violet-500/10 text-violet-400 rounded-xl">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <span class="block text-xs text-slate-400">Akumulasi Keterlambatan</span>
+            <span class="text-xl font-bold text-white">{{ $totalKeterlambatanMenit }} <span class="text-xs font-normal text-slate-400">menit</span></span>
+        </div>
+    </div>
+</div>
+
 {{-- Charts Section --}}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     {{-- Donut Chart: Persentase Kehadiran --}}
@@ -67,7 +114,7 @@
         </div>
     </div>
 
-    <form action="{{ route('dosen.dashboard') }}" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <form action="{{ route('dosen.dashboard') }}" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {{-- Tanggal Mulai --}}
         <div>
             <label class="block text-xs text-slate-400 mb-1.5 font-medium">Tanggal Mulai</label>
@@ -91,12 +138,23 @@
             </select>
         </div>
 
+        {{-- Mahasiswa Filter --}}
+        <div>
+            <label class="block text-xs text-slate-400 mb-1.5 font-medium">Mahasiswa</label>
+            <select name="nim" class="w-full bg-slate-900/60 border border-slate-800 text-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-colors">
+                <option value="">Semua Mahasiswa</option>
+                @foreach($mahasiswaList as $mhs)
+                    <option value="{{ $mhs->nim }}" {{ request('nim') == $mhs->nim ? 'selected' : '' }}>{{ $mhs->nama }}</option>
+                @endforeach
+            </select>
+        </div>
+
         {{-- Tombol Terapkan & Reset --}}
         <div class="flex items-end gap-2">
             <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl text-xs transition-all">
                 Terapkan
             </button>
-            @if(request()->anyFilled(['start_date', 'end_date', 'status']))
+            @if(request()->anyFilled(['start_date', 'end_date', 'status', 'nim']))
                 <a href="{{ route('dosen.dashboard') }}" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition-all border border-slate-700">
                     Reset
                 </a>
@@ -125,6 +183,7 @@
                     <th class="py-3 px-4">NIM</th>
                     <th class="py-3 px-4">Nama</th>
                     <th class="py-3 px-4">Waktu Masuk</th>
+                    <th class="py-3 px-4">Keterlambatan</th>
                     <th class="py-3 px-4">Status</th>
                 </tr>
             </thead>
@@ -135,6 +194,13 @@
                         <td class="py-3 px-4 text-slate-300">{{ $item['nim'] }}</td>
                         <td class="py-3 px-4 font-medium text-white">{{ $item['nama'] }}</td>
                         <td class="py-3 px-4 text-slate-400 font-mono text-xs">{{ $item['waktu'] }}</td>
+                        <td class="py-3 px-4 text-slate-400 font-mono text-xs">
+                            @if($item['status'] === 'Terlambat' && $item['keterlambatan_menit'] !== null)
+                                <span class="text-amber-400 font-semibold">{{ $item['keterlambatan_menit'] }} menit</span>
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td class="py-3 px-4">
                             @if($item['status'] === 'Hadir')
                                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Hadir</span>
@@ -147,7 +213,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="py-8 text-center text-slate-500">Tidak ada log absensi yang sesuai filter.</td>
+                        <td colspan="6" class="py-8 text-center text-slate-500">Tidak ada log absensi yang sesuai filter.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -173,6 +239,7 @@
                 <input type="hidden" name="start_date" value="{{ request('start_date') }}">
                 <input type="hidden" name="end_date" value="{{ request('end_date') }}">
                 <input type="hidden" name="status" value="{{ request('status') }}">
+                <input type="hidden" name="nim" value="{{ request('nim') }}">
 
                 <select name="sort_mhs" onchange="this.form.submit()" class="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-xl px-3 py-2 focus:outline-none">
                     <option value="">Urutkan Kehadiran</option>
@@ -191,6 +258,7 @@
                     <th class="py-3 px-4">Nama</th>
                     <th class="py-3 px-4">Hadir</th>
                     <th class="py-3 px-4">Terlambat</th>
+                    <th class="py-3 px-4">Total Menit Terlambat</th>
                     <th class="py-3 px-4">Alpa</th>
                     <th class="py-3 px-4">Persentase Kehadiran</th>
                 </tr>
@@ -202,6 +270,13 @@
                         <td class="py-3 px-4 font-medium text-white">{{ $stat['nama'] }}</td>
                         <td class="py-3 px-4 text-emerald-400 font-semibold">{{ $stat['hadir'] }}</td>
                         <td class="py-3 px-4 text-amber-400 font-semibold">{{ $stat['terlambat'] }}</td>
+                        <td class="py-3 px-4 text-amber-400 font-mono text-xs">
+                            @if($stat['total_menit_terlambat'] > 0)
+                                {{ $stat['total_menit_terlambat'] }} menit
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td class="py-3 px-4 text-rose-400 font-semibold">{{ $stat['alpa'] }}</td>
                         <td class="py-3 px-4">
                             <div class="flex items-center gap-3">
@@ -215,7 +290,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="py-8 text-center text-slate-500">Tidak ada data mahasiswa di kelas & prodi Anda.</td>
+                        <td colspan="7" class="py-8 text-center text-slate-500">Tidak ada data mahasiswa di kelas & prodi Anda.</td>
                     </tr>
                 @endforelse
             </tbody>

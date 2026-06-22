@@ -107,6 +107,7 @@
                 <th>Nama</th>
                 <th style="width: 10%">Kelas</th>
                 <th style="width: 15%">Waktu Masuk</th>
+                <th style="width: 15%">Keterlambatan</th>
                 <th style="width: 15%">Status</th>
             </tr>
         </thead>
@@ -121,6 +122,13 @@
                     <td>{{ $item['kelas'] }}</td>
                     <td>{{ $item['waktu'] }}</td>
                     <td>
+                        @if($item['status'] === 'Terlambat' && $item['keterlambatan_menit'] !== null)
+                            {{ $item['keterlambatan_menit'] }} menit
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td>
                         @if($item['status'] === 'Hadir')
                             <span class="status-hadir">Hadir</span>
                         @elseif($item['status'] === 'Terlambat')
@@ -132,7 +140,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" style="text-align: center;">Tidak ada data absensi untuk periode ini.</td>
+                    <td colspan="8" style="text-align: center;">Tidak ada data absensi untuk periode ini.</td>
                 </tr>
             @endforelse
         </tbody>
