@@ -85,4 +85,26 @@ class AttendanceApiController extends Controller
             ]
         ], 200);
     }
+
+    public function updateDeviceStatus(Request $request)
+    {
+        $request->validate([
+            'status' => 'required|in:on,off'
+        ]);
+
+        \Illuminate\Support\Facades\Cache::forever('device_status', $request->status);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Status perangkat berhasil diupdate'
+        ]);
+    }
+
+    public function getDeviceStatus()
+    {
+        $status = \Illuminate\Support\Facades\Cache::get('device_status', 'on');
+        return response()->json([
+            'status' => $status
+        ]);
+    }
 }

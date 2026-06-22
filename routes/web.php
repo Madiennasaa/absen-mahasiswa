@@ -24,6 +24,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [AdminController::class, 'index'])->name('dashboard');
         
+        Route::post('/device-status/toggle', [AdminController::class, 'toggleDeviceStatus'])->name('device.toggle');
+        
         // Mahasiswa CRUD
         Route::get('/mahasiswa/rfid-edit-mode', [AdminController::class, 'rfidEditModeStatus'])->name('mahasiswa.rfidEditMode');
         Route::get('/mahasiswa', [AdminController::class, 'mahasiswaIndex'])->name('mahasiswa.index');

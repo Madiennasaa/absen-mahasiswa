@@ -213,4 +213,15 @@ class AdminController extends Controller
             'uid' => $lastScannedUid
         ]);
     }
+
+    public function toggleDeviceStatus(Request $request)
+    {
+        $status = $request->input('status'); // 'on' or 'off'
+        \Illuminate\Support\Facades\Cache::forever('device_status', $status);
+        
+        return response()->json([
+            'status' => 'success',
+            'device_status' => $status
+        ]);
+    }
 }

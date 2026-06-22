@@ -118,8 +118,20 @@
         <!-- Top Navbar -->
         <header class="h-16 border-b border-slate-800/60 glass-panel flex items-center justify-between px-6 md:px-8">
             <h2 class="text-lg font-semibold text-white">@yield('page_title', 'Dashboard')</h2>
-            <div class="text-sm text-slate-400 hidden sm:block">
-                Hari ini: <span class="text-slate-200 font-medium">{{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}</span>
+            <div class="flex items-center gap-6">
+                <!-- Toggle RFID Device -->
+                @if(auth()->user()->role === 'admin')
+                <div class="flex items-center gap-3 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800">
+                    <span class="text-xs font-medium text-slate-400">RFID Device</span>
+                    <button type="button" id="rfidToggleBtn" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ Cache::get('device_status', 'on') === 'on' ? 'bg-emerald-500' : 'bg-slate-600' }}" role="switch" aria-checked="{{ Cache::get('device_status', 'on') === 'on' ? 'true' : 'false' }}">
+                        <span aria-hidden="true" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {{ Cache::get('device_status', 'on') === 'on' ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                    </button>
+                    <span id="rfidStatusText" class="text-xs font-bold {{ Cache::get('device_status', 'on') === 'on' ? 'text-emerald-400' : 'text-slate-400' }}">{{ Cache::get('device_status', 'on') === 'on' ? 'ON' : 'OFF' }}</span>
+                </div>
+                @endif
+                <div class="text-sm text-slate-400 hidden sm:block">
+                    Hari ini: <span class="text-slate-200 font-medium">{{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}</span>
+                </div>
             </div>
         </header>
 
@@ -135,6 +147,53 @@
             @yield('content')
         </div>
     </main>
+
+    @if(auth()->user()->role === 'admin')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('rfidToggleBtn');
+            const statusText = document.getElementById('rfidStatusText');
+            const toggleCircle = toggleBtn.querySelector('span');
+            
+            toggleBtn.addEventListener('click', function() {
+                const isCurrentlyOn = toggleBtn.getAttribute('aria-checked') === 'true';
+                const newStatus = isCurrentlyOn ? 'off' : 'on';
+                
+                // Optimistic UI update
+                toggleBtn.setAttribute('aria-checked', !isCurrentlyOn);
+                if (newStatus === 'on') {
+                    toggleBtn.classList.replace('bg-slate-600', 'bg-emerald-500');
+                    toggleCircle.classList.replace('translate-x-0', 'translate-x-5');
+                    statusText.textContent = 'ON';
+                    statusText.classList.replace('text-slate-400', 'text-emerald-400');
+                } else {
+                    toggleBtn.classList.replace('bg-emerald-500', 'bg-slate-600');
+                    toggleCircle.classList.replace('translate-x-5', 'translate-x-0');
+                    statusText.textContent = 'OFF';
+                    statusText.classList.replace('text-emerald-400', 'text-slate-400');
+                }
+
+                // Send to server
+                fetch('{{ route('admin.device.toggle') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status !== 'success') {
+                        console.error('Failed to update device status');
+                        // Revert UI on failure could be implemented here
+                    }
+                })
+                .catch(err => console.error(err));
+            });
+        });
+    </script>
+    @endif
 
 </body>
 </html>
