@@ -33,13 +33,17 @@ class AttendanceApiController extends Controller
             ], 200);
         }
 
-        // UID tidak terdaftar
+        $isNewUser = false;
+        // Logika baru: Jika UID tidak terdaftar, simpan sebagai data mahasiswa baru
         if (!$mahasiswa) {
-            return response()->json([
-                'status'  => 'error',
-                'code'    => 404,
-                'message' => 'Belum Terdaftar'
-            ], 404);
+            $isNewUser = true;
+            $mahasiswa = new Mahasiswa();
+            $mahasiswa->uid_ktm = $uid;
+            $mahasiswa->nim     = 'NEW-' . $uid;
+            $mahasiswa->nama    = 'User ' . $uid;
+            $mahasiswa->kelas   = '-';
+            $mahasiswa->prodi   = '-';
+            $mahasiswa->save();
         }
 
         // Cek sudah absen hari ini
@@ -63,7 +67,7 @@ class AttendanceApiController extends Controller
         if ($waktuSekarang->gt($jamMasuk)) {
             $statusKehadiran = 'Terlambat';
             // Hitung selisih menit (dibulatkan ke atas)
-            $keterlambatanMenit = (int) ceil($waktuSekarang->diffInMinutes($jamMasuk));
+            $keterlambatanMenit = (int) abs($waktuSekarang->diffInMinutes($jamMasuk));
         } else {
             $statusKehadiran = 'Hadir';
         }
@@ -91,6 +95,7 @@ class AttendanceApiController extends Controller
                 'keterlambatan_menit'  => $keterlambatanMenit,
                 'status_label'         => $messageTampil,
                 'waktu'                => $waktuSekarang->format('H:i:s'),
+                'is_new_user'          => $isNewUser,
             ]
         ], 200);
     }

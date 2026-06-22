@@ -66,12 +66,12 @@ class MqttListen extends Command
         if (!$mahasiswa) {
             $mahasiswa = new Mahasiswa();
             $mahasiswa->uid_ktm = $uid;
-            $mahasiswa->nim     = '-';
+            $mahasiswa->nim     = 'NEW-' . $uid;
             $mahasiswa->nama    = 'User ' . $uid;
             $mahasiswa->kelas   = '-';
             $mahasiswa->prodi   = '-';
             $mahasiswa->save();
-            $this->info("Mahasiswa baru berhasil disimpan: " . $uid);
+            Log::info("Data mahasiswa baru dibuat: User {$uid}");
         }
 
         // 3. Catat Absensi
