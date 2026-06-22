@@ -53,8 +53,8 @@
         <!-- Logo / Header -->
         <div class="p-6 border-b border-slate-800 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
-                    RFID
+                <div class="w-9 h-9">
+                    <img src="{{ asset('polinema.png') }}" alt="Logo Polinema" class="w-full h-full object-contain drop-shadow-md">
                 </div>
                 <div>
                     <h1 class="font-bold text-base tracking-tight text-white leading-none">Absensi IoT</h1>
@@ -77,6 +77,10 @@
                 <a href="{{ route('admin.dosen.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.dosen.*') ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 pl-3' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                     Kelola Dosen
+                </a>
+                <a href="{{ route('admin.riwayat_scan.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.riwayat_scan.*') ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 pl-3' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Riwayat Scan
                 </a>
             @endif
 

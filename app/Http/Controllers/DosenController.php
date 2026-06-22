@@ -316,24 +316,26 @@ class DosenController extends Controller
     {
         $scope = $this->getDosenScope();
 
-        $recent = Absensi::with('mahasiswa')
-            ->whereHas('mahasiswa', function ($q) use ($scope) {
-                $q->where('kelas', $scope['kelas'])
-                  ->where('prodi', $scope['prodi']);
+        $recent = \App\Models\RiwayatScan::where(function($query) use ($scope) {
+                $query->where(function($q) use ($scope) {
+                    $q->where('kelas', $scope['kelas'])
+                      ->where('prodi', $scope['prodi']);
+                })->orWhere('kelas', '-'); // Tampilkan juga kartu yang belum terdaftar
             })
-            ->whereDate('waktu_masuk', Carbon::today())
-            ->orderBy('waktu_masuk', 'desc')
+            // Menghindari isu timezone dengan tidak memfilter based on Carbon::today(),
+            // cukup mengandalkan 15 log terakhir diurutkan by created_at.
+            ->orderBy('created_at', 'desc')
             ->take(15)
             ->get()
             ->map(function ($item) {
                 return [
-                    'nama'               => $item->mahasiswa->nama ?? 'Unknown',
-                    'nim'                => $item->mahasiswa->nim ?? '-',
-                    'kelas'              => $item->mahasiswa->kelas ?? '-',
-                    'prodi'              => $item->mahasiswa->prodi ?? '-',
-                    'waktu'              => $item->waktu_masuk->format('H:i:s'),
+                    'nama'               => $item->nama ?? 'Unknown',
+                    'nim'                => $item->nim ?? '-',
+                    'kelas'              => $item->kelas ?? '-',
+                    'prodi'              => $item->prodi ?? '-',
+                    'waktu'              => $item->created_at->format('H:i:s'),
                     'status'             => $this->normalizeStatus($item->status),
-                    'keterlambatan_menit'=> $item->keterlambatan_menit,
+                    'keterlambatan_menit'=> null,
                 ];
             });
 

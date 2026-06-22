@@ -42,6 +42,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dosen/{id}/edit', [AdminController::class, 'dosenEdit'])->name('dosen.edit');
         Route::put('/dosen/{id}', [AdminController::class, 'dosenUpdate'])->name('dosen.update');
         Route::delete('/dosen/{id}', [AdminController::class, 'dosenDestroy'])->name('dosen.destroy');
+
+        // Riwayat Scan
+        Route::get('/riwayat-scan', [AdminController::class, 'riwayatScanIndex'])->name('riwayat_scan.index');
     });
 
     // Dosen Routes
