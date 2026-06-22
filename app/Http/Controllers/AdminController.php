@@ -219,6 +219,27 @@ class AdminController extends Controller
         $status = $request->input('status'); // 'on' or 'off'
         \Illuminate\Support\Facades\Cache::forever('device_status', $status);
         
+        try {
+            $server   = 'fef9f2859a7244f0b347d8aef97a6df7.s1.eu.hivemq.cloud';
+            $port     = 8883;
+            $clientId = 'Laravel-Web-' . uniqid();
+            $username = 'uas.kelompok1';
+            $password = 'Admin123';
+
+            $connectionSettings = (new \PhpMqtt\Client\ConnectionSettings)
+                ->setUsername($username)
+                ->setPassword($password)
+                ->setUseTls(true)
+                ->setTlsVerifyPeer(false);
+
+            $mqtt = new \PhpMqtt\Client\MqttClient($server, $port, $clientId);
+            $mqtt->connect($connectionSettings, true);
+            $mqtt->publish('kampus/cmd/status', $status, 0);
+            $mqtt->disconnect();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('MQTT Publish Error: ' . $e->getMessage());
+        }
+
         return response()->json([
             'status' => 'success',
             'device_status' => $status

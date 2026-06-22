@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Mahasiswa;
 use App\Models\Absensi;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class AttendanceApiController extends Controller
 {
@@ -21,8 +22,8 @@ class AttendanceApiController extends Controller
         $mahasiswa = Mahasiswa::where('uid_ktm', $uid)->first();
 
         // Cek apakah sedang dalam mode edit form
-        if (\Illuminate\Support\Facades\Cache::has('rfid_edit_mode')) {
-            \Illuminate\Support\Facades\Cache::put('last_scanned_uid', $uid, 10);
+        if (Cache::has('rfid_edit_mode')) {
+            Cache::put('last_scanned_uid', $uid, 10);
             return response()->json([
                 'status'  => 'success',
                 'code'    => 200,
@@ -30,21 +31,13 @@ class AttendanceApiController extends Controller
             ], 200);
         }
 
-        // Logika baru: Jika UID tidak ada dan BUKAN di mode edit, simpan sebagai data baru
+        // Logika baru: Jika UID tidak terdaftar, kembalikan response belum terdaftar
         if (!$mahasiswa) {
-            $mahasiswa = new Mahasiswa();
-            $mahasiswa->uid_ktm = $uid;
-            $mahasiswa->nim     = '-';
-            $mahasiswa->nama    = 'User ' . $uid;
-            $mahasiswa->kelas   = '-';
-            $mahasiswa->prodi   = '-';
-            $mahasiswa->save();
-
             return response()->json([
-                'status'  => 'success',
-                'code'    => 201,
-                'message' => 'UID Baru Disimpan'
-            ], 201);
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'Belum Terdaftar'
+            ], 404);
         }
 
         $hariIni = Carbon::today();
@@ -92,7 +85,7 @@ class AttendanceApiController extends Controller
             'status' => 'required|in:on,off'
         ]);
 
-        \Illuminate\Support\Facades\Cache::forever('device_status', $request->status);
+        Cache::forever('device_status', $request->status);
 
         return response()->json([
             'status' => 'success',
@@ -102,7 +95,7 @@ class AttendanceApiController extends Controller
 
     public function getDeviceStatus()
     {
-        $status = \Illuminate\Support\Facades\Cache::get('device_status', 'on');
+        $status = Cache::get('device_status', 'on');
         return response()->json([
             'status' => $status
         ]);
