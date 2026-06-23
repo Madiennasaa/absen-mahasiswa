@@ -16,6 +16,11 @@ use App\Exports\AbsensiExport;
  * Alpa = hari aktif tanpa record absensi (bukan dari DB, dihitung manual).
  * Status dari DB selalu di-normalize dengan ucfirst(strtolower()) supaya
  * konsisten meski ada inkonsistensi case di database.
+ *
+ * FIX v2:
+ * - whereBetween diganti whereDate agar tidak sensitif terhadap timezone jam
+ * - $chartPie & $totalKeterlambatanMenit dihitung dari data TANPA filter
+ *   status/nim, supaya overview cards selalu menampilkan total keseluruhan
  */
 class DosenController extends Controller
 {
@@ -45,13 +50,24 @@ class DosenController extends Controller
      */
     public function index(Request $request)
     {
+        // --- Data TERFILTER (status + nim) untuk tabel log & chart ---
         $rekapInfo      = $this->getRekapData($request);
         $rekapData      = $rekapInfo['data'];
         $startDate      = $rekapInfo['start_date'];
         $endDate        = $rekapInfo['end_date'];
         $totalHariAktif = $rekapInfo['total_hari_aktif'];
 
-        // --- Pagination tabel rekap ---
+        // --- Data TANPA filter status/nim untuk overview cards ---
+        // Supaya card Total Hadir/Terlambat/Alpa/Menit tidak terpengaruh
+        // ketika user sedang memfilter tabel berdasarkan status atau mahasiswa tertentu.
+        $rekapInfoAll = $this->getRekapData(new \Illuminate\Http\Request([
+            'start_date' => $request->input('start_date'),
+            'end_date'   => $request->input('end_date'),
+            // sengaja tidak pass 'status' dan 'nim'
+        ]));
+        $rekapDataAll = $rekapInfoAll['data'];
+
+        // --- Pagination tabel rekap (dari data terfilter) ---
         $currentPage      = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
         $perPage          = 15;
         $currentPageItems = $rekapData->slice(($currentPage - 1) * $perPage, $perPage)->values();
@@ -63,15 +79,20 @@ class DosenController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        // --- Chart Donut: Persentase keseluruhan ---
-        $statusCounts = $rekapData->groupBy('status')->map(fn($items) => $items->count());
+        // --- Chart Donut & Cards: dari data ALL (tidak terfilter) ---
+        $statusCountsAll = $rekapDataAll->groupBy('status')->map(fn($items) => $items->count());
         $chartPie = [
-            'Hadir'     => $statusCounts->get('Hadir', 0),
-            'Terlambat' => $statusCounts->get('Terlambat', 0),
-            'Alpa'      => $statusCounts->get('Alpa', 0),
+            'Hadir'     => $statusCountsAll->get('Hadir', 0),
+            'Terlambat' => $statusCountsAll->get('Terlambat', 0),
+            'Alpa'      => $statusCountsAll->get('Alpa', 0),
         ];
 
-        // --- Chart Bar: Hadir/Terlambat/Alpa per mahasiswa ---
+        // Akumulasi keterlambatan keseluruhan (dari data ALL)
+        $totalKeterlambatanMenit = $rekapDataAll
+            ->where('status', 'Terlambat')
+            ->sum('keterlambatan_menit');
+
+        // --- Chart Bar: Hadir/Terlambat/Alpa per mahasiswa (dari data terfilter) ---
         $mahasiswaGroups = $rekapData->groupBy('nim');
         $chartBar        = [];
         foreach ($mahasiswaGroups as $nim => $items) {
@@ -84,7 +105,7 @@ class DosenController extends Controller
             ];
         }
 
-        // --- Chart Line: Tren harian ---
+        // --- Chart Line: Tren harian (dari data terfilter) ---
         $dateGroups = $rekapData->groupBy('tanggal')->sortKeys();
         $chartLine  = [
             'labels'     => [],
@@ -100,32 +121,31 @@ class DosenController extends Controller
             $chartLine['Alpa'][]      = $counts->get('Alpa', 0);
         }
 
-        // --- Statistik per mahasiswa ---
+        // --- Statistik per mahasiswa (dari data terfilter) ---
         $mahasiswaStats = collect();
         foreach ($mahasiswaGroups as $nim => $items) {
             $mhs      = $items->first();
             $counts   = $items->groupBy('status')->map(fn($g) => $g->count());
-            $hadir      = $counts->get('Hadir', 0);
-            $terlambat  = $counts->get('Terlambat', 0);
-            $alpa       = $counts->get('Alpa', 0);
+            $hadir     = $counts->get('Hadir', 0);
+            $terlambat = $counts->get('Terlambat', 0);
+            $alpa      = $counts->get('Alpa', 0);
 
             $persentase = $totalHariAktif > 0
                 ? round((($hadir + $terlambat) / $totalHariAktif) * 100, 1)
                 : 0;
 
-            // Total menit terlambat per mahasiswa
             $totalMenitMhs = $items
                 ->where('status', 'Terlambat')
                 ->sum('keterlambatan_menit');
 
             $mahasiswaStats->push([
-                'nim'                    => $nim,
-                'nama'                   => $mhs['nama'],
-                'hadir'                  => $hadir,
-                'terlambat'              => $terlambat,
-                'alpa'                   => $alpa,
-                'persentase'             => $persentase,
-                'total_menit_terlambat'  => $totalMenitMhs,
+                'nim'                   => $nim,
+                'nama'                  => $mhs['nama'],
+                'hadir'                 => $hadir,
+                'terlambat'             => $terlambat,
+                'alpa'                  => $alpa,
+                'persentase'            => $persentase,
+                'total_menit_terlambat' => $totalMenitMhs,
             ]);
         }
 
@@ -144,11 +164,6 @@ class DosenController extends Controller
             ->where('prodi', $scope['prodi'])
             ->orderBy('nama')
             ->get();
-
-        // Akumulasi keterlambatan keseluruhan
-        $totalKeterlambatanMenit = $rekapData
-            ->where('status', 'Terlambat')
-            ->sum('keterlambatan_menit');
 
         return view('dosen.dashboard', compact(
             'paginatedRekap',
@@ -202,8 +217,10 @@ class DosenController extends Controller
     /**
      * Core logic: bangun data rekap lengkap (termasuk Alpa yang dihitung manual).
      *
-     * FIX: status dari DB di-normalize pakai normalizeStatus()
-     *      supaya ga ada mismatch case ('hadir' vs 'Hadir').
+     * FIX v2:
+     * - Ganti whereBetween → whereDate agar tidak sensitif timezone jam (UTC vs WIB).
+     *   whereBetween dengan toDateTimeString() bisa miss data yang masuk
+     *   setelah jam 17:00 WIB jika server/DB berjalan di UTC.
      */
     private function getRekapData(Request $request): array
     {
@@ -212,8 +229,7 @@ class DosenController extends Controller
         $startDateInput = $request->input('start_date');
         $endDateInput   = $request->input('end_date');
 
-        // Default rentang: 30 hari terakhir (bukan cuma hari ini),
-        // supaya dashboard & chart langsung menampilkan data yang representatif.
+        // Default rentang: 30 hari terakhir
         $startDate = $startDateInput ? Carbon::parse($startDateInput) : Carbon::today()->subDays(29);
         $endDate   = $endDateInput   ? Carbon::parse($endDateInput)   : Carbon::today();
 
@@ -230,22 +246,23 @@ class DosenController extends Controller
         }
         $totalHariAktif = count($dates);
 
-        // Query mahasiswa (scoped)
+        // Query mahasiswa (scoped ke kelas + prodi dosen)
         $mahasiswas = Mahasiswa::where('kelas', $scope['kelas'])
             ->where('prodi', $scope['prodi'])
             ->orderBy('nama')
             ->get();
 
         // Query absensi dalam rentang
+        // ✅ FIX: pakai whereDate (membandingkan bagian tanggal saja)
+        //         bukan whereBetween dengan datetime string,
+        //         agar tidak ada data baru yang terlewat karena perbedaan timezone.
         $mahasiswaUids = $mahasiswas->pluck('uid_ktm');
         $absensi = Absensi::whereIn('uid_ktm', $mahasiswaUids)
-            ->whereBetween('waktu_masuk', [
-                $startDate->copy()->startOfDay()->toDateTimeString(),
-                $endDate->copy()->endOfDay()->toDateTimeString(),
-            ])
+            ->whereDate('waktu_masuk', '>=', $startDate->format('Y-m-d'))
+            ->whereDate('waktu_masuk', '<=', $endDate->format('Y-m-d'))
             ->get()
             ->groupBy(function ($item) {
-                return $item->uid_ktm . '_' . $item->waktu_masuk->format('Y-m-d');
+                return $item->uid_ktm . '_' . Carbon::parse($item->waktu_masuk)->format('Y-m-d');
             });
 
         // Bangun rekap: semua tanggal × semua mahasiswa
@@ -257,9 +274,8 @@ class DosenController extends Controller
                 if (isset($absensi[$key])) {
                     $record = $absensi[$key]->first();
 
-                    // ✅ FIX: normalize status supaya selalu Title Case
                     $status             = $this->normalizeStatus($record->status);
-                    $waktu              = $record->waktu_masuk->format('H:i:s');
+                    $waktu              = Carbon::parse($record->waktu_masuk)->format('H:i:s');
                     $keterlambatanMenit = $record->keterlambatan_menit;
                 } else {
                     $status             = 'Alpa';
@@ -268,14 +284,14 @@ class DosenController extends Controller
                 }
 
                 $rekap[] = [
-                    'tanggal'            => $date,
-                    'nim'                => $mhs->nim,
-                    'nama'               => $mhs->nama,
-                    'kelas'              => $mhs->kelas,
-                    'prodi'              => $mhs->prodi,
-                    'waktu'              => $waktu,
-                    'status'             => $status,
-                    'keterlambatan_menit'=> $keterlambatanMenit,
+                    'tanggal'             => $date,
+                    'nim'                 => $mhs->nim,
+                    'nama'                => $mhs->nama,
+                    'kelas'               => $mhs->kelas,
+                    'prodi'               => $mhs->prodi,
+                    'waktu'               => $waktu,
+                    'status'              => $status,
+                    'keterlambatan_menit' => $keterlambatanMenit,
                 ];
             }
         }
@@ -293,10 +309,10 @@ class DosenController extends Controller
         }
 
         return [
-            'data'            => collect(array_values($rekap)),
-            'start_date'      => $startDate->format('Y-m-d'),
-            'end_date'        => $endDate->format('Y-m-d'),
-            'total_hari_aktif'=> $totalHariAktif,
+            'data'             => collect(array_values($rekap)),
+            'start_date'       => $startDate->format('Y-m-d'),
+            'end_date'         => $endDate->format('Y-m-d'),
+            'total_hari_aktif' => $totalHariAktif,
         ];
     }
 
@@ -316,26 +332,24 @@ class DosenController extends Controller
     {
         $scope = $this->getDosenScope();
 
-        $recent = \App\Models\RiwayatScan::where(function($query) use ($scope) {
-                $query->where(function($q) use ($scope) {
+        $recent = \App\Models\RiwayatScan::where(function ($query) use ($scope) {
+                $query->where(function ($q) use ($scope) {
                     $q->where('kelas', $scope['kelas'])
                       ->where('prodi', $scope['prodi']);
-                })->orWhere('kelas', '-'); // Tampilkan juga kartu yang belum terdaftar
+                })->orWhere('kelas', '-');
             })
-            // Menghindari isu timezone dengan tidak memfilter based on Carbon::today(),
-            // cukup mengandalkan 15 log terakhir diurutkan by created_at.
             ->orderBy('created_at', 'desc')
             ->take(15)
             ->get()
             ->map(function ($item) {
                 return [
-                    'nama'               => $item->nama ?? 'Unknown',
-                    'nim'                => $item->nim ?? '-',
-                    'kelas'              => $item->kelas ?? '-',
-                    'prodi'              => $item->prodi ?? '-',
-                    'waktu'              => $item->created_at->format('H:i:s'),
-                    'status'             => $this->normalizeStatus($item->status),
-                    'keterlambatan_menit'=> null,
+                    'nama'                => $item->nama ?? 'Unknown',
+                    'nim'                 => $item->nim ?? '-',
+                    'kelas'               => $item->kelas ?? '-',
+                    'prodi'               => $item->prodi ?? '-',
+                    'waktu'               => Carbon::parse($item->created_at)->format('H:i:s'),
+                    'status'              => $this->normalizeStatus($item->status),
+                    'keterlambatan_menit' => null,
                 ];
             });
 
