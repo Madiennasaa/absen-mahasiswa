@@ -34,8 +34,8 @@
     <div class="w-full max-w-md glass-login p-8 rounded-3xl shadow-2xl relative z-10">
         <!-- Logo -->
         <div class="flex flex-col items-center mb-8">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white text-xl shadow-xl shadow-indigo-500/20 mb-3">
-                RFID
+            <div class="w-14 h-14">
+                <img src="{{ asset('polinema.png') }}" alt="Logo Polinema" class="w-full h-full object-contain drop-shadow-md">
             </div>
             <h1 class="text-2xl font-bold tracking-tight text-white">Selamat Datang Kembali</h1>
             <p class="text-sm text-slate-400 mt-1">Silakan masuk ke akun Anda</p>

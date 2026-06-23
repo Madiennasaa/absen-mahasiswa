@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Mahasiswa;
 use App\Models\Absensi;
+use App\Models\RiwayatScan;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
@@ -44,6 +45,15 @@ class AttendanceApiController extends Controller
             $mahasiswa->kelas   = '-';
             $mahasiswa->prodi   = '-';
             $mahasiswa->save();
+
+            RiwayatScan::create([
+                'uid_ktm' => $uid,
+                'nim' => $mahasiswa->nim,
+                'nama' => $mahasiswa->nama,
+                'kelas' => $mahasiswa->kelas,
+                'prodi' => $mahasiswa->prodi,
+                'status' => 'Kartu Baru Terdaftar',
+            ]);
         }
 
         // Cek sudah absen hari ini
@@ -53,6 +63,15 @@ class AttendanceApiController extends Controller
             ->first();
 
         if ($absensiHariIni) {
+            RiwayatScan::create([
+                'uid_ktm' => $uid,
+                'nim' => $mahasiswa->nim,
+                'nama' => $mahasiswa->nama,
+                'kelas' => $mahasiswa->kelas,
+                'prodi' => $mahasiswa->prodi,
+                'status' => 'Ditolak - Sudah Absen',
+            ]);
+
             return response()->json([
                 'status'  => 'error',
                 'code'    => 400,
@@ -84,6 +103,16 @@ class AttendanceApiController extends Controller
         $messageTampil = $statusKehadiran === 'Terlambat'
             ? "Terlambat {$keterlambatanMenit} menit"
             : 'Hadir';
+
+        // Simpan ke riwayat scan
+        RiwayatScan::create([
+            'uid_ktm' => $uid,
+            'nim' => $mahasiswa->nim,
+            'nama' => $mahasiswa->nama,
+            'kelas' => $mahasiswa->kelas,
+            'prodi' => $mahasiswa->prodi,
+            'status' => 'Sukses - ' . $messageTampil,
+        ]);
 
         return response()->json([
             'status'  => 'success',

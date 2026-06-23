@@ -57,9 +57,16 @@
 
                     let html = '';
                     data.forEach(item => {
-                        const statusClass = item.status === 'Hadir' 
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                        let statusClass = 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+                        if (item.status.includes('Hadir')) {
+                            statusClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                        } else if (item.status.includes('Terlambat')) {
+                            statusClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                        } else if (item.status.includes('Ditolak')) {
+                            statusClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
+                        }
+
+                        const statusText = item.status; // status now already contains "Terlambat X menit" or similar
 
                         html += `
                             <tr class="hover:bg-slate-900/10 transition-colors animate-fade-in">
@@ -70,7 +77,7 @@
                                 <td class="py-3.5 px-4 font-mono text-indigo-400">${item.waktu}</td>
                                 <td class="py-3.5 px-4">
                                     <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusClass}">
-                                        ${item.status}
+                                        ${statusText}
                                     </span>
                                 </td>
                             </tr>

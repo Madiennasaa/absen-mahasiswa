@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Mahasiswa;
 use App\Models\Absensi;
 use App\Models\User;
+use App\Models\RiwayatScan;
 use Carbon\Carbon;
 
 class AdminController extends Controller
@@ -244,5 +245,34 @@ class AdminController extends Controller
             'status' => 'success',
             'device_status' => $status
         ]);
+    }
+
+    public function riwayatScanIndex(Request $request)
+    {
+        $query = RiwayatScan::query();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('nim', 'like', "%{$search}%")
+                  ->orWhere('uid_ktm', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('kelas')) {
+            $query->where('kelas', $request->kelas);
+        }
+
+        if ($request->filled('prodi')) {
+            $query->where('prodi', $request->prodi);
+        }
+
+        $riwayatScans = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
+
+        $allKelas = RiwayatScan::select('kelas')->whereNotNull('kelas')->where('kelas', '!=', '')->distinct()->pluck('kelas');
+        $allProdi = RiwayatScan::select('prodi')->whereNotNull('prodi')->where('prodi', '!=', '')->distinct()->pluck('prodi');
+
+        return view('admin.riwayat_scan.index', compact('riwayatScans', 'allKelas', 'allProdi'));
     }
 }
